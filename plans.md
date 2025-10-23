@@ -1,19 +1,19 @@
 # ES-tensaku 機能実装計画書 (MVP)
 
 ## 1. プロジェクト概要
-- **目的**: Gemini 2.5 Flash API を活用し、英作文を即時に添削・フィードバックできる Next.js アプリを Vercel/Neon 上で提供する。
+- **目的**: Gemini 2.5 Flash API を活用し、日本企業向けエントリーシートを即時に添削・フィードバックできる Next.js アプリを Vercel/Neon 上で提供する。
 - **前提**: アカウント登録やログインを排し、誰でもすぐに利用できるワンページ体験を最優先する。
 - **主要技術**: Next.js (App Router, TypeScript), Tailwind CSS, Prisma, Neon PostgreSQL, Vercel Serverless Functions, Gemini 2.5 Flash API。
 
 ## 2. MVP スコープ
-1. **エッセイ入力 & 設定 UI**
-   - トップページにエッセイ本文入力欄（Markdown対応テキストエリア）と、評価観点選択（プリセット3種: General, Academic, Exam）。
-   - 目標語数やトーンなど任意設定を追加入力できるオプション欄。
+1. **エントリーシート入力 & 設定 UI**
+   - トップページにエントリーシート本文入力欄（Markdown対応テキストエリア）と、評価観点選択（プリセット3種: 志望動機, ガクチカ, 自己PR）。
+   - 目標文字数やトーンなど任意設定を追加入力できるオプション欄。
    - 利用規約への同意チェック（初回送信時のみ）。
 
 2. **添削リクエスト送信フロー**
-   - クライアント側で入力検証（最低語数、禁止語チェック）。
-   - `POST /api/review` で essay データを送信し、Neon に保存（匿名セッションIDで紐付け）。
+   - クライアント側で入力検証（最低文字数、禁止語チェック）。
+   - `POST /api/review` で entry sheet データを送信し、Neon に保存（匿名セッションIDで紐付け）。
    - API で Gemini 2.5 Flash を呼び出し、ストリームレスポンスで UI に反映。
 
 3. **結果表示**
@@ -48,27 +48,27 @@
 
 ## 5. ES-tensaku ロジック
 ### 5.1 多段階評価
-1. **前処理**: 言語判定、単語数集計、誤字候補抽出 (簡易辞書)。
+1. **前処理**: 言語判定、文字数集計、ビジネス上不適切な表現の抽出 (簡易辞書)。
 2. **Gemini 呼び出し**: 以下の2モードで順次実行。
    - **Evaluation モード**: rubric (Content/Organisation/Language/Mechanics) に基づくスコア + 根拠生成。
    - **Rewrite モード**: 改善案とリライト提案を生成。必要に応じて sentence-level suggestions。
 3. **統合**: Evaluation結果とRewrite結果をマージし、指摘リストを構築。矛盾検出用のセルフチェック (Gemini に JSON 検証を依頼) を挟む。
-4. **信頼度補正**: Gemini 応答の `groundingMetadata` と前処理結果（語数不足・Grammar検出結果）を組み合わせ、confidence score を計算。
+4. **信頼度補正**: Gemini 応答の `groundingMetadata` と前処理結果（文字数不足・表現チェック結果）を組み合わせ、confidence score を計算。
 
 ### 5.2 プロンプト戦略
-- System Prompt: 「あなたは英語ライティング指導の専門家。CEFR基準を使用し、建設的なフィードバックを行う」など固定。
-- User Prompt: エッセイ本文、ユーザ設定、目標レベル、前処理結果サマリを含む。
+- System Prompt: 「あなたは日本企業の採用に精通したキャリアアドバイザー。ビジネス文書として適切な日本語で建設的なフィードバックを行う」など固定。
+- User Prompt: エントリーシート本文、ユーザ設定、企業情報、前処理結果サマリを含む。
 - Output Schema: JSON (scores, issues, rewriteSuggestions, confidence) + Markdown (ユーザ向けまとめ) を要求。
 - Self-critique Step: Gemini に JSON Schema 検証と矛盾指摘をさせ、必要に応じて再生成を行う。
 
 ### 5.3 後処理
 - Inline Diff: sentence-level alignment + diff-match-patch を用いて差分を生成。
-- Issue Tagging: Grammar, Word Choice, Structure, Cohesion, Mechanics に分類。
+- Issue Tagging: 意図の明確さ、構成、表現、語調、形式面に分類。
 - 推奨学習タスク: 弱点上位2カテゴリに対して Gemini から取得した学習アクションを提示。
 
 ## 6. データモデル (MVP)
 - `ReviewSession`: id, sessionKey (Cookieベース), createdAt。
-- `Essay`: id, sessionId, topic, content, wordCount, submittedAt。
+- `Essay`: id, sessionId, topic, content, characterCount, submittedAt。
 - `Evaluation`: id, essayId, overallScore, sectionScores(JSONB), summaryMarkdown, confidence。
 - `InlineIssue`: id, evaluationId, startIndex, endIndex, category, severity, message, suggestion。
 - `TokenUsageLog`: id, evaluationId, mode, promptTokens, responseTokens, latencyMs。
@@ -79,7 +79,7 @@
 | T1 | Foundation | リポジトリ初期セットアップ | Next.js App Router, TypeScript, ESLint/Tailwind の導入 | ベースアプリ、CI設定 |
 | T2 | Foundation | Prisma + Neon 接続設定 | Prisma schema 定義、Neon 接続、migrate | `schema.prisma`, `.env.example` |
 | T3 | Core | 添削 API `/api/review` | 入力バリデーション、Gemini 呼び出し、結果ストリーミング | API ハンドラー、Gemini service module |
-| T4 | Core | 前処理・後処理ロジック | 語数計測、diff-match-patch、confidence 算出 | ユーティリティ群、テスト |
+| T4 | Core | 前処理・後処理ロジック | 文字数計測、diff-match-patch、confidence 算出 | ユーティリティ群、テスト |
 | T5 | Core | フロントエンド UI | 入力フォーム、進行状況表示、結果カード、履歴モーダル | ページ/コンポーネント |
 | T6 | Core | IndexedDB 履歴保存 | ブラウザ内 5 件まで保存、CSV エクスポート | カスタムフック、ユーティリティ |
 | T7 | Quality | 最低限のテスト | API ユニットテスト、Gemini モック、UI スナップショット | テストコード |

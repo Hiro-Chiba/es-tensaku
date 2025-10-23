@@ -1,8 +1,8 @@
-export type ReviewFocus = "general" | "academic" | "exam";
+export type ReviewFocus = "motivation" | "gakuchika" | "selfPr";
 
 export interface ReviewSettings {
   focus: ReviewFocus;
-  targetWordCount?: number;
+  targetCharacterCount?: number;
   tone?: string;
 }
 
@@ -14,8 +14,8 @@ export interface EssayInput {
 }
 
 export interface PreprocessResult {
-  wordCount: number;
-  language: "en" | "unknown";
+  characterCount: number;
+  language: "ja" | "en" | "unknown";
   bannedWords: string[];
 }
 

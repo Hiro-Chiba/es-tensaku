@@ -15,14 +15,14 @@ model ReviewSession {
 }
 
 model Essay {
-  id          String       @id @default(uuid())
-  session     ReviewSession @relation(fields: [sessionId], references: [id])
-  sessionId   String
-  topic       String?
-  content     String
-  wordCount   Int
-  submittedAt DateTime     @default(now())
-  evaluation  Evaluation?
+  id             String        @id @default(uuid())
+  session        ReviewSession @relation(fields: [sessionId], references: [id])
+  sessionId      String
+  topic          String?
+  content        String
+  characterCount Int
+  submittedAt    DateTime      @default(now())
+  evaluation     Evaluation?
 }
 
 model Evaluation {

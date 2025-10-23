@@ -4,6 +4,12 @@ import type {
   InlineIssue
 } from "@/lib/types";
 
+const focusLabels: Record<GeminiReviewInput["essay"]["settings"]["focus"], string> = {
+  motivation: "志望動機",
+  gakuchika: "学生時代に頑張ったこと",
+  selfPr: "自己PR"
+};
+
 type Fetcher = typeof fetch;
 
 interface GeminiContentPart {
@@ -93,10 +99,10 @@ export class GeminiService {
       parts: [
         {
           text: [
-            "You are an expert English writing instructor.",
-            "Evaluate essays using CEFR-aligned rubrics (Content, Organisation, Language, Mechanics).",
-            "Return constructive feedback with actionable guidance.",
-            "Output JSON matching the schema provided in the prompt."
+            "You are an experienced career advisor who reviews Japanese job application entry sheets.",
+            "Assess submissions written in Japanese with emphasis on motivation clarity, logical structure, persuasive power, and appropriateness for corporate communication.",
+            "Return constructive, culturally aware guidance and keep the tone supportive.",
+            "Respond in Japanese and output JSON matching the schema provided in the prompt."
           ].join(" ")
         }
       ]
@@ -105,9 +111,12 @@ export class GeminiService {
 
   private buildUserPrompt(input: GeminiReviewInput): GeminiContent {
     const { essay, preprocess } = input;
+    const focusLabel = focusLabels[essay.settings.focus];
     const settingsSummary = [
-      `Focus: ${essay.settings.focus}`,
-      essay.settings.targetWordCount ? `Target words: ${essay.settings.targetWordCount}` : null,
+      `Review focus: ${focusLabel}`,
+      essay.settings.targetCharacterCount
+        ? `Target characters: ${essay.settings.targetCharacterCount}`
+        : null,
       essay.settings.tone ? `Desired tone: ${essay.settings.tone}` : null
     ]
       .filter(Boolean)
@@ -115,7 +124,7 @@ export class GeminiService {
 
     const preprocessingSummary = [
       `Detected language: ${preprocess.language}`,
-      `Word count: ${preprocess.wordCount}`,
+      `Character count: ${preprocess.characterCount}`,
       preprocess.bannedWords.length > 0
         ? `Banned words flagged: ${preprocess.bannedWords.join(", ")}`
         : "Banned words flagged: none"
@@ -138,16 +147,17 @@ Return a JSON object with the following shape:
   "learningTasks": string[2],
   "confidence": number (0-1)
 }
-`;
+Ensure all text fields (summaryMarkdown, topImprovementPoints, inlineIssues, rewriteSuggestion, learningTasks) are written in natural Japanese suitable for job application feedback.`;
 
-    const prompt = `Essay topic: ${essay.topic ?? "(not provided)"}
+    const prompt = `Document focus: ${focusLabel}
+Topic or target company: ${essay.topic ?? "(not provided)"}
 Settings: ${settingsSummary}
 Preprocessing summary: ${preprocessingSummary}
-Essay:
+Entry sheet response (Japanese):
 """
 ${essay.content}
 """
-`;
+Provide thorough feedback in Japanese tailored for entry sheets submitted to Japanese companies.`;
 
     return {
       role: "user",
