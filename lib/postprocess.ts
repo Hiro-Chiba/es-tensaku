@@ -1,4 +1,4 @@
-import { DiffMatchPatch } from "diff-match-patch";
+import DiffMatchPatch from "diff-match-patch";
 import type { GeminiReviewOutput, InlineIssue } from "@/lib/types";
 
 const dmp = new DiffMatchPatch();
@@ -8,8 +8,10 @@ type DiffSegment = {
   type: "equal" | "insert" | "delete";
 };
 
+type DiffTuple = [number, string];
+
 export function createInlineDiff(original: string, revised: string): DiffSegment[] {
-  const diffs = dmp.diff_main(original, revised);
+  const diffs = dmp.diff_main(original, revised) as DiffTuple[];
   dmp.diff_cleanupSemantic(diffs);
   return diffs.map(([type, value]) => ({
     value,

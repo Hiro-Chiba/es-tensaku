@@ -14,14 +14,16 @@
     "jsx": "preserve",
     "incremental": true,
     "types": ["jest", "node"],
+    "plugins": [{ "name": "next" }],
     "baseUrl": ".",
     "paths": {
       "@/components/*": ["components/*"],
       "@/lib/*": ["lib/*"],
       "@/hooks/*": ["hooks/*"],
-      "@/app/*": ["app/*"]
+      "@/app/*": ["app/*"],
+      "@/utils/*": ["utils/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.cjs", "**/*.mjs"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.cjs", "**/*.mjs", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }
