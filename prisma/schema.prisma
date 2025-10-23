@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ReviewSession {
+  id         String   @id @default(uuid())
+  sessionKey String   @unique
+  createdAt  DateTime @default(now())
+  essays     Essay[]
+}
+
+model Essay {
+  id          String       @id @default(uuid())
+  session     ReviewSession @relation(fields: [sessionId], references: [id])
+  sessionId   String
+  topic       String?
+  content     String
+  wordCount   Int
+  submittedAt DateTime     @default(now())
+  evaluation  Evaluation?
+}
+
+model Evaluation {
+  id             String        @id @default(uuid())
+  essay          Essay         @relation(fields: [essayId], references: [id])
+  essayId        String
+  overallScore   Int
+  sectionScores  Json
+  summaryMarkdown String
+  rewriteSuggestion String
+  learningTasks   Json
+  confidence     Float
+  createdAt      DateTime      @default(now())
+  issues         InlineIssue[]
+  tokenUsageLogs TokenUsageLog[]
+}
+
+model InlineIssue {
+  id           String     @id @default(uuid())
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id])
+  evaluationId String
+  startIndex   Int
+  endIndex     Int
+  category     String
+  severity     String
+  message      String
+  suggestion   String
+}
+
+model TokenUsageLog {
+  id           String     @id @default(uuid())
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id])
+  evaluationId String
+  mode         String
+  promptTokens Int
+  responseTokens Int
+  latencyMs    Int
+  createdAt    DateTime  @default(now())
+}
