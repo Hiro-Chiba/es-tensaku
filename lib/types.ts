@@ -64,6 +64,31 @@ export interface ReviewRecord {
   createdAt: string;
 }
 
+export interface EssayCheckResult {
+  id: string;
+  label: string;
+  group: string;
+  description: string;
+  weight: number;
+  passed: boolean;
+  advice: string;
+}
+
+export interface EssayEvaluation {
+  score: number;
+  rawScore: number;
+  maxScore: number;
+  checks: EssayCheckResult[];
+  groupSummaries: Array<{ group: string; score: number; maxScore: number; percentage: number }>;
+  topAdvice: string[];
+}
+
+export interface EssayImprovement {
+  text: string;
+  summary: string;
+  appliedStrategies: string[];
+}
+
 export type ReviewStreamEventType =
   | "preprocess"
   | "gemini-requested"
