@@ -4,7 +4,7 @@ import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "ES-tensaku",
-  description: "Gemini 2.5 Flash を活用した英作文添削アシスタント"
+  description: "AI を活用したエントリーシート添削アシスタント"
 };
 
 export default function RootLayout({

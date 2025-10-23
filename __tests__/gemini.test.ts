@@ -5,16 +5,18 @@ describe("GeminiService", () => {
   const input: GeminiReviewInput = {
     essay: {
       content:
-        "This essay contains a sufficient number of words to pass the validation layer and should be analysed by the service.",
+        "私は大学で地域課題を解決するためのプロジェクトを主導し、関係者の意見を丁寧に調整しながら成果につなげました。" +
+        "具体的には、参加者の声を集めて改善案をまとめ、議論の整理と役割分担の見直しを行い、前年よりも満足度を高めました。" +
+        "この経験で培った調整力と改善力を活かし、御社の新規事業開発でも信頼される人材として貢献したいと考えています。",
       settings: {
-        focus: "academic",
-        tone: "formal"
+        focus: "motivation",
+        tone: "丁寧"
       },
       agreeToTerms: true
     },
     preprocess: {
-      language: "en",
-      wordCount: 30,
+      language: "ja",
+      characterCount: 210,
       bannedWords: []
     }
   };

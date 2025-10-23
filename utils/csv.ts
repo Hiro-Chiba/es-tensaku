@@ -1,22 +1,28 @@
 import type { ReviewRecord } from "@/lib/types";
 
+const focusLabelMap: Record<ReviewRecord["essay"]["settings"]["focus"], string> = {
+  motivation: "志望動機",
+  gakuchika: "学生時代に頑張ったこと",
+  selfPr: "自己PR"
+};
+
 export function toCsv(records: ReviewRecord[]): string {
   const header = [
     "id",
     "createdAt",
     "focus",
-    "wordCount",
+    "characterCount",
     "overallScore",
     "summary"
   ];
   const rows = records.map((record) => {
     const summary = record.result.summaryMarkdown.replace(/\s+/g, " ");
-    const wordCount = record.essay.content.trim().split(/\s+/).filter(Boolean).length;
+    const characterCount = record.essay.content.replace(/\s+/g, "").length;
     return [
       record.id,
       record.createdAt,
-      record.essay.settings.focus,
-      wordCount,
+      focusLabelMap[record.essay.settings.focus],
+      characterCount,
       record.result.overallScore,
       JSON.stringify(summary)
     ];

@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
             sessionId: session.id,
             topic: body.topic,
             content: body.content,
-            wordCount: preprocess.wordCount
+            characterCount: preprocess.characterCount
           }
         });
 

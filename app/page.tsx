@@ -24,10 +24,21 @@ interface ReviewState {
 }
 
 const focusOptions = [
-  { value: "general", label: "General" },
-  { value: "academic", label: "Academic" },
-  { value: "exam", label: "Exam" }
+  { value: "motivation", label: "志望動機" },
+  { value: "gakuchika", label: "学生時代に頑張ったこと" },
+  { value: "selfPr", label: "自己PR" }
 ] as const;
+
+const focusLabelMap = Object.fromEntries(
+  focusOptions.map((option) => [option.value, option.label])
+) as Record<(typeof focusOptions)[number]["value"], string>;
+
+const sectionLabels: Record<keyof GeminiReviewOutput["sectionScores"], string> = {
+  content: "内容・意図の明確さ",
+  organisation: "構成・論理性",
+  language: "表現・言葉遣い",
+  mechanics: "日本語の正確さ"
+};
 
 async function parseEventStream(response: Response, onEvent: (event: ReviewStreamEvent) => void) {
   const reader = response.body?.getReader();
@@ -57,8 +68,8 @@ export default function Page() {
   const { records, saveRecord, clearHistory, isReady } = useReviewHistory();
   const [essay, setEssay] = useState("");
   const [topic, setTopic] = useState("");
-  const [focus, setFocus] = useState<typeof focusOptions[number]["value"]>("general");
-  const [targetWordCount, setTargetWordCount] = useState<number | undefined>();
+  const [focus, setFocus] = useState<typeof focusOptions[number]["value"]>(focusOptions[0].value);
+  const [targetCharacterCount, setTargetCharacterCount] = useState<number | undefined>();
   const [tone, setTone] = useState("");
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [state, setState] = useState<ReviewState>({ status: "idle" });
@@ -83,9 +94,9 @@ export default function Page() {
       setState({ status: "error", message: "利用規約に同意してください" });
       return;
     }
-    const wordCount = essay.trim().split(/\s+/).filter(Boolean).length;
-    if (wordCount < 50) {
-      const message = "エッセイは最低50語以上入力してください";
+    const charCount = essay.replace(/\s+/g, "").length;
+    if (charCount < 200) {
+      const message = "エントリーシートは最低200文字以上入力してください";
       toast.error(message);
       setState({ status: "error", message });
       return;
@@ -97,7 +108,7 @@ export default function Page() {
       topic: topic || undefined,
       settings: {
         focus,
-        targetWordCount,
+        targetCharacterCount,
         tone: tone || undefined
       },
       agreeToTerms
@@ -137,7 +148,7 @@ export default function Page() {
       setState({ status: "error", message: error instanceof Error ? error.message : String(error) });
       toast.error(error instanceof Error ? error.message : "不明なエラーが発生しました");
     }
-  }, [agreeToTerms, essay, focus, saveRecord, targetWordCount, tone, topic]);
+  }, [agreeToTerms, essay, focus, saveRecord, targetCharacterCount, tone, topic]);
 
   const downloadCsv = useCallback(() => {
     const csv = toCsv(records);
@@ -155,30 +166,30 @@ export default function Page() {
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
       <header className="space-y-2 text-center">
-        <Badge variant="success">Gemini 2.5 Flash powered</Badge>
+        <Badge variant="success">AI 添削エンジン搭載</Badge>
         <h1 className="text-4xl font-bold tracking-tight">ES-tensaku</h1>
         <p className="text-slate-600">
-          英作文を貼り付けて、数十秒でCEFR指標に基づくプロレベルのフィードバックを受け取りましょう。
+          志望動機やガクチカなどのエントリーシート文章を貼り付けて、数十秒でビジネス視点のフィードバックを受け取りましょう。
         </p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>エッセイを入力</CardTitle>
+          <CardTitle>エントリーシートの内容を入力</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium">トピック (任意)</label>
+              <label className="text-sm font-medium">テーマ / 応募先 (任意)</label>
               <input
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                placeholder="例: The impact of remote work on productivity"
+                placeholder="例: 株式会社◯◯への志望動機"
                 value={topic}
                 onChange={(event) => setTopic(event.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">評価観点</label>
+              <label className="text-sm font-medium">添削したい項目</label>
               <select
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
                 value={focus}
@@ -197,15 +208,15 @@ export default function Page() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium">目標語数 (任意)</label>
+              <label className="text-sm font-medium">目標文字数 (任意)</label>
               <input
                 type="number"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                placeholder="例: 250"
-                value={targetWordCount ?? ""}
+                placeholder="例: 400"
+                value={targetCharacterCount ?? ""}
                 onChange={(event) => {
                   const value = event.target.value;
-                  setTargetWordCount(value ? Number(value) : undefined);
+                  setTargetCharacterCount(value ? Number(value) : undefined);
                 }}
               />
             </div>
@@ -213,7 +224,7 @@ export default function Page() {
               <label className="text-sm font-medium">トーン (任意)</label>
               <input
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                placeholder="例: Formal, persuasive"
+                placeholder="例: 誠実・熱意が伝わる語り口"
                 value={tone}
                 onChange={(event) => setTone(event.target.value)}
               />
@@ -221,12 +232,12 @@ export default function Page() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">エッセイ本文</label>
+            <label className="text-sm font-medium">本文</label>
             <textarea
               rows={12}
               value={essay}
               onChange={(event) => setEssay(event.target.value)}
-              placeholder="ここに英作文を貼り付けてください。Markdown も利用できます。"
+              placeholder="ここに志望動機や学生時代に力を入れたことなどの文章を貼り付けてください。Markdown も利用できます。"
             />
           </div>
 
@@ -245,7 +256,7 @@ export default function Page() {
               onClick={handleSubmit}
               disabled={state.status === "running"}
             >
-              {state.status === "running" ? "添削中..." : "Gemini に送信"}
+              {state.status === "running" ? "添削中..." : "AI に送信"}
             </button>
             {state.status !== "idle" && (
               <div className="space-y-2">
@@ -269,7 +280,7 @@ export default function Page() {
               <div className="space-y-2">
                 {Object.entries(state.result.sectionScores).map(([key, value]) => (
                   <div key={key} className="flex items-center justify-between text-sm">
-                    <span className="capitalize">{key}</span>
+                    <span>{sectionLabels[key as keyof typeof sectionLabels] ?? key}</span>
                     <span>{value}</span>
                   </div>
                 ))}
@@ -362,7 +373,7 @@ export default function Page() {
               <div key={record.id} className="rounded-lg border border-slate-200 bg-white p-4 text-sm shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <Badge>{record.essay.settings.focus}</Badge>
+                    <Badge>{focusLabelMap[record.essay.settings.focus]}</Badge>
                     <span className="font-medium">スコア: {record.result.overallScore}</span>
                   </div>
                   <span className="text-xs text-slate-500">{formatDate(record.createdAt)}</span>
