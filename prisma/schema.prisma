@@ -26,9 +26,9 @@ model Essay {
 }
 
 model Evaluation {
-  id             String        @id @default(uuid())
-  essay          Essay         @relation(fields: [essayId], references: [id])
-  essayId        String
+  id              String        @id @default(uuid())
+  essay           Essay         @relation(fields: [essayId], references: [id])
+  essayId         String        @unique
   overallScore   Int
   sectionScores  Json
   summaryMarkdown String

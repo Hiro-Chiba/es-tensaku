@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { nanoid } from "nanoid";
+import type { Prisma } from "@prisma/client";
 import { preprocessEssay } from "@/lib/preprocess";
 import { canProceed } from "@/lib/rateLimiter";
 import { GeminiService } from "@/lib/gemini";
@@ -85,7 +86,12 @@ export async function POST(request: NextRequest) {
           data: {
             essayId: essayRecord.id,
             overallScore: result.overallScore,
-            sectionScores: result.sectionScores,
+            sectionScores: {
+              content: result.sectionScores.content,
+              organisation: result.sectionScores.organisation,
+              language: result.sectionScores.language,
+              mechanics: result.sectionScores.mechanics
+            } satisfies Prisma.InputJsonObject,
             summaryMarkdown: result.summaryMarkdown,
             rewriteSuggestion: result.rewriteSuggestion,
             learningTasks: result.learningTasks,
