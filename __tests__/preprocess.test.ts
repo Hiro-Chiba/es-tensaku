@@ -12,8 +12,7 @@ describe("preprocessEssay", () => {
     topic: "テスト応募先",
     settings: {
       focus: "gakuchika"
-    },
-    agreeToTerms: true
+    }
   };
 
   it("calculates character count and language", () => {
@@ -34,8 +33,7 @@ describe("preprocessEssay", () => {
   it("throws when essay is too short", () => {
     const essay: EssayInput = {
       ...baseEssay,
-      content: "志望動機をまとめています。",
-      agreeToTerms: true
+      content: "志望動機をまとめています。"
     };
     expect(() => preprocessEssay(essay)).toThrow("エントリーシートは200文字以上で入力してください。");
   });

@@ -15,7 +15,6 @@ export interface EvaluationContext {
   focus: ReviewFocus;
   topic?: string;
   targetCharacterCount?: number;
-  tonePreference?: string;
   industry?: string;
   jobCategory?: string;
   charCount: number;
@@ -222,7 +221,6 @@ const focusKeywordsMap: Record<ReviewFocus, string[]> = {
 export interface EvaluationContextOptions {
   topic?: string;
   targetCharacterCount?: number;
-  tonePreference?: string;
   industry?: string;
   jobCategory?: string;
 }
@@ -280,7 +278,6 @@ export function buildEvaluationContext(
     focus,
     topic: options?.topic,
     targetCharacterCount: options?.targetCharacterCount,
-    tonePreference: options?.tonePreference,
     industry: options?.industry,
     jobCategory: options?.jobCategory,
     charCount,

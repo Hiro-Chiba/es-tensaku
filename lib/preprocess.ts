@@ -21,11 +21,7 @@ const essaySchema = z.object({
       .int()
       .positive()
       .max(2000)
-      .optional(),
-    tone: z.string().max(80).optional()
-  }),
-  agreeToTerms: z.literal(true, {
-    errorMap: () => ({ message: "利用規約に同意してください。" })
+      .optional()
   })
 });
 
