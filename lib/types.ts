@@ -4,6 +4,8 @@ export interface ReviewSettings {
   focus: ReviewFocus;
   targetCharacterCount?: number;
   tone?: string;
+  industry?: string;
+  jobCategory?: string;
 }
 
 export interface EssayInput {
@@ -72,6 +74,8 @@ export interface EssayCheckResult {
   weight: number;
   passed: boolean;
   advice: string;
+  rubricId?: number;
+  tags?: string[];
 }
 
 export interface EssayEvaluation {
@@ -81,12 +85,38 @@ export interface EssayEvaluation {
   checks: EssayCheckResult[];
   groupSummaries: Array<{ group: string; score: number; maxScore: number; percentage: number }>;
   topAdvice: string[];
+  actionPlan: ActionPlanItem[];
+  coverage: RubricCoverageSummary;
 }
 
 export interface EssayImprovement {
   text: string;
   summary: string;
   appliedStrategies: string[];
+  actionPlan?: ActionPlanItem[];
+}
+
+export interface ActionPlanItem {
+  title: string;
+  summary: string;
+  rubricIds: number[];
+  suggestions: string[];
+  priority: "high" | "medium" | "low";
+}
+
+export interface RubricCoverageSummary {
+  totalCriteria: number;
+  satisfied: number;
+  percentage: number;
+  groups: Array<{ group: string; satisfied: number; total: number; percentage: number }>;
+}
+
+export interface EvaluationOptions {
+  topic?: string;
+  targetCharacterCount?: number;
+  tone?: string;
+  industry?: string;
+  jobCategory?: string;
 }
 
 export type ReviewStreamEventType =
