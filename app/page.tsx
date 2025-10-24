@@ -4,8 +4,6 @@ import { useCallback, useMemo, useState } from "react";
 import { marked } from "marked";
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useReviewHistory } from "@/hooks/useReviewHistory";
 import type {
@@ -46,6 +44,12 @@ const actionPlanPriorityClass: Record<"high" | "medium" | "low", string> = {
   high: "text-emerald-600",
   medium: "text-amber-600",
   low: "text-slate-500"
+};
+
+const issueSeverityClass: Record<"info" | "minor" | "major", string> = {
+  major: "bg-rose-100 text-rose-700",
+  minor: "bg-amber-100 text-amber-700",
+  info: "bg-slate-200 text-slate-700"
 };
 
 async function parseEventStream(response: Response, onEvent: (event: ReviewStreamEvent) => void) {
@@ -182,139 +186,89 @@ export default function Page() {
     }
   }, [essay, focus, saveRecord, targetCharacterCount, topic]);
 
+  const displayedImprovedText = state.result?.rewriteSuggestion ?? improvement?.text ?? "";
+
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10">
-      <header className="space-y-2 text-center">
-        <h1 className="text-4xl font-bold tracking-tight">ES-tensaku</h1>
-        <p className="text-slate-600">
-          志望動機やガクチカなどのエントリーシート文章を貼り付けて、数十秒でビジネス視点のフィードバックを受け取りましょう。
-        </p>
-      </header>
+    <main className="min-h-screen bg-slate-100 py-10">
+      <div className="mx-auto flex max-w-6xl flex-col gap-12 rounded-[40px] border-2 border-slate-300 bg-white px-8 py-12 shadow-sm">
+        <header className="text-center">
+          <h1 className="text-4xl font-bold tracking-tight text-slate-800">ES-tensaku</h1>
+          <p className="mt-3 text-sm text-slate-500">
+            シンプルな画面でエントリーシートの原文と改善案を並べて確認しながら、重点的な改善ポイントを把握できます。
+          </p>
+        </header>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>エントリーシートの内容を入力</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-10 lg:grid-cols-2">
+          <section className="flex flex-col gap-6">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-700">元の文</h2>
+              <p className="mt-1 text-sm text-slate-500">入力した文章がそのまま表示されます。編集しながら AI に送信できます。</p>
+            </div>
+            <textarea
+              rows={14}
+              value={essay}
+              onChange={(event) => setEssay(event.target.value)}
+              placeholder="ここに志望動機や学生時代に力を入れたことなどの文章を貼り付けてください。Markdown も利用できます。"
+              className="min-h-[320px] w-full flex-1 rounded-[32px] border-2 border-slate-300 bg-white p-5 text-sm leading-relaxed text-slate-800 shadow-inner focus:border-slate-500 focus:outline-none focus:ring-0"
+            />
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={state.status === "running"}
+                className="w-full rounded-full bg-slate-800 px-6 py-3 text-sm font-semibold tracking-wide text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {state.status === "running" ? "添削中..." : "AI に送信"}
+              </button>
+              {state.status !== "idle" && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">テーマ / 応募先 (任意)</label>
-                  <input
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                    placeholder="例: 株式会社◯◯への志望動機"
-                    value={topic}
-                    onChange={(event) => setTopic(event.target.value)}
-                  />
+                  <Progress value={progressValue} />
+                  {state.message && <p className="text-sm text-rose-600">{state.message}</p>}
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">添削したい項目</label>
-                  <select
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                    value={focus}
-                    onChange={(event) =>
-                      setFocus(event.target.value as (typeof focusOptions)[number]["value"])
-                    }
-                  >
-                    {focusOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              )}
+            </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">目標文字数 (任意)</label>
-                <input
-                  type="number"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                  placeholder="例: 400"
-                  value={targetCharacterCount ?? ""}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setTargetCharacterCount(value ? Number(value) : undefined);
-                  }}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">本文</label>
-                <textarea
-                  rows={12}
-                  value={essay}
-                  onChange={(event) => setEssay(event.target.value)}
-                  placeholder="ここに志望動機や学生時代に力を入れたことなどの文章を貼り付けてください。Markdown も利用できます。"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={state.status === "running"}
-                >
-                  {state.status === "running" ? "添削中..." : "AI に送信"}
-                </button>
-                {state.status !== "idle" && (
-                  <div className="space-y-2">
-                    <Progress value={progressValue} />
-                    {state.message && <p className="text-sm text-rose-600">{state.message}</p>}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {clientEvaluation && (
-            <Card>
-              <CardHeader>
-                <CardTitle>ESスコア診断</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-baseline justify-between">
-                    <div>
-                      <div className="text-sm text-slate-500">入力テキストのスコア</div>
-                      <div className="flex items-baseline gap-3">
-                        <span className="text-3xl font-bold">{clientEvaluation.score}</span>
-                        <span className="text-sm text-slate-500">/ 100</span>
-                      </div>
+            {clientEvaluation && (
+              <div className="space-y-6 rounded-[32px] border border-slate-200 bg-slate-50/60 p-6">
+                <div className="flex flex-wrap items-baseline justify-between gap-4">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">入力テキストのスコア</div>
+                    <div className="mt-1 flex items-end gap-2">
+                      <span className="text-3xl font-bold text-slate-900">{clientEvaluation.score}</span>
+                      <span className="text-sm text-slate-500">/ 100</span>
                     </div>
-                    {scoreGain !== null && (
-                      <div className="text-right">
-                        <div className="text-sm text-slate-500">改善後差分</div>
-                        <span
-                          className={`text-base font-semibold ${
-                            scoreGain >= 0 ? "text-emerald-600" : "text-rose-600"
-                          }`}
-                        >
-                          {scoreGain >= 0 ? `+${scoreGain}` : scoreGain}
-                        </span>
-                      </div>
-                    )}
                   </div>
-                  <Progress value={clientEvaluation.score} className="mt-3" />
+                  {scoreGain !== null && (
+                    <div className="text-right">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">改善後差分</div>
+                      <span
+                        className={`text-base font-semibold ${
+                          scoreGain >= 0 ? "text-emerald-600" : "text-rose-600"
+                        }`}
+                      >
+                        {scoreGain >= 0 ? `+${scoreGain}` : scoreGain}
+                      </span>
+                    </div>
+                  )}
                 </div>
+                <Progress value={clientEvaluation.score} />
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   {clientEvaluation.groupSummaries.map((summary) => {
                     const coverageInfo = clientEvaluation.coverage.groups.find(
                       (group) => group.group === summary.group
                     );
                     return (
-                      <div key={summary.group} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <div key={summary.group} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="text-xs font-semibold text-slate-500">{summary.group}</div>
-                        <div className="mt-1 flex items-center justify-between">
-                          <span className="text-lg font-bold text-slate-800">{summary.percentage}</span>
-                          <span className="text-xs text-slate-500">/100</span>
+                        <div className="mt-2 flex items-baseline gap-2">
+                          <span className="text-xl font-bold text-slate-900">{summary.percentage}</span>
+                          <span className="text-xs text-slate-500">/ 100</span>
                         </div>
                         <Progress value={summary.percentage} className="mt-2" />
                         {coverageInfo && (
                           <p className="mt-2 text-xs text-slate-500">
-                            {coverageInfo.satisfied}/{coverageInfo.total}項目クリア（{coverageInfo.percentage}%）
+                            {coverageInfo.satisfied}/{coverageInfo.total} 項目クリア（{coverageInfo.percentage}%）
                           </p>
                         )}
                       </div>
@@ -322,11 +276,11 @@ export default function Page() {
                   })}
                 </div>
 
-                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="text-xs font-semibold text-slate-500">ルーブリック達成率</div>
-                  <div className="mt-1 flex items-baseline gap-2">
+                  <div className="mt-2 flex items-baseline gap-2">
                     <span className="text-2xl font-bold text-slate-900">{clientEvaluation.coverage.percentage}</span>
-                    <span className="text-xs text-slate-500">/100</span>
+                    <span className="text-xs text-slate-500">/ 100</span>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
                     {clientEvaluation.coverage.satisfied} / {clientEvaluation.coverage.totalCriteria} 項目を達成
@@ -336,7 +290,7 @@ export default function Page() {
 
                 {clientEvaluation.topAdvice.length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">優先改善ポイント</h3>
+                    <h3 className="text-sm font-semibold text-slate-700">優先改善ポイント</h3>
                     <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
                       {clientEvaluation.topAdvice.map((advice, index) => (
                         <li key={index}>{advice}</li>
@@ -347,13 +301,10 @@ export default function Page() {
 
                 {clientEvaluation.actionPlan.length > 0 && (
                   <div className="space-y-3">
-                    <h3 className="text-sm font-semibold">アクションプラン</h3>
-                    <ol className="space-y-3 text-sm">
+                    <h3 className="text-sm font-semibold text-slate-700">アクションプラン</h3>
+                    <ol className="space-y-3 text-sm text-slate-700">
                       {clientEvaluation.actionPlan.map((item, index) => (
-                        <li
-                          key={`${item.title}-${index}`}
-                          className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
-                        >
+                        <li key={`${item.title}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                           <div className="flex items-center justify-between">
                             <span className="font-semibold text-slate-800">{index + 1}. {item.title}</span>
                             <span className={`text-xs font-semibold ${actionPlanPriorityClass[item.priority]}`}>
@@ -382,19 +333,59 @@ export default function Page() {
                     </ol>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>最近の履歴</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-3">
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-slate-700">添削条件</h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-600">テーマ / 応募先 (任意)</label>
+                  <input
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm focus:border-slate-500 focus:outline-none focus:ring-0"
+                    placeholder="例: 株式会社◯◯への志望動機"
+                    value={topic}
+                    onChange={(event) => setTopic(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-600">添削したい項目</label>
+                  <select
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm focus:border-slate-500 focus:outline-none focus:ring-0"
+                    value={focus}
+                    onChange={(event) =>
+                      setFocus(event.target.value as (typeof focusOptions)[number]["value"])
+                    }
+                  >
+                    {focusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-600">目標文字数 (任意)</label>
+                <input
+                  type="number"
+                  className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm focus:border-slate-500 focus:outline-none focus:ring-0"
+                  placeholder="例: 400"
+                  value={targetCharacterCount ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setTargetCharacterCount(value ? Number(value) : undefined);
+                  }}
+                />
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-slate-700">最近の履歴</h2>
+              <div className="flex flex-wrap items-center gap-3 text-sm">
                 <button
                   type="button"
-                  className="bg-slate-200 text-slate-700 hover:bg-slate-300"
+                  className="rounded-full border border-slate-300 bg-white px-4 py-2 text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={() => void clearHistory()}
                   disabled={!records.length}
                 >
@@ -405,62 +396,63 @@ export default function Page() {
               <div className="space-y-3">
                 {records.length === 0 && <p className="text-sm text-slate-600">履歴はまだありません。</p>}
                 {records.map((record) => (
-                  <div key={record.id} className="rounded-lg border border-slate-200 bg-white p-4 text-sm shadow-sm">
+                  <div key={record.id} className="rounded-2xl border border-slate-200 bg-white p-4 text-sm shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Badge>{focusLabelMap[record.essay.settings.focus]}</Badge>
-                        <span className="font-medium">スコア: {record.result.overallScore}</span>
-                      </div>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                        {focusLabelMap[record.essay.settings.focus]}
+                      </span>
                       <span className="text-xs text-slate-500">{formatDate(record.createdAt)}</span>
                     </div>
-                    <p className="mt-1 text-xs text-slate-600">
-                      {record.essay.topic ?? "(トピック未設定)"}
-                    </p>
+                    <p className="mt-2 text-sm font-medium text-slate-800">スコア: {record.result.overallScore}</p>
+                    <p className="text-xs text-slate-500">{record.essay.topic ?? "(トピック未設定)"}</p>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </section>
+          </section>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>文章比較ビュー</CardTitle>
-              <p className="text-sm text-slate-500">
-                {improvement ? improvement.summary : "入力した本文と改善案を左右に並べて確認できます。"}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <section className="space-y-3">
-                  <h3 className="text-sm font-semibold text-slate-600">入力本文</h3>
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <article className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
-                      {essay ? essay : "本文を入力するとここに表示されます。"}
-                    </article>
-                  </div>
-                </section>
-                <section className="space-y-3">
-                  <h3 className="text-sm font-semibold text-slate-600">改善案</h3>
-                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <article className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
-                      {improvement ? improvement.text : "AI 添削後に改善案が表示されます。"}
-                    </article>
-                  </div>
-                </section>
-              </div>
+          <section className="flex flex-col gap-6">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-700">後の文</h2>
+              <p className="mt-1 text-sm text-slate-500">AI が提案する改善後の文章やサマリを確認できます。</p>
+            </div>
+            <div className="flex-1 rounded-[32px] border-2 border-dashed border-slate-300 bg-slate-50/70 p-6">
+              <article className="min-h-[280px] whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                {displayedImprovedText
+                  ? displayedImprovedText
+                  : "AI 添削が完了するとここに改善後の文章が表示されます。"}
+              </article>
+            </div>
 
-              {improvement && improvedEvaluation ? (
-                <div className="space-y-4">
-                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="text-sm text-slate-500">改善後スコア</div>
-                    <div className="mt-1 flex items-baseline gap-3">
-                      <span className="text-3xl font-bold text-brand">{improvedEvaluation.score}</span>
-                      <span className="text-sm text-slate-500">/ 100</span>
-                      {clientEvaluation && scoreGain !== null && (
+            {improvement && (
+              <div className="space-y-4 rounded-[32px] border border-slate-200 bg-white/80 p-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700">改善概要</h3>
+                  <p className="mt-1 text-sm text-slate-600">{improvement.summary}</p>
+                </div>
+                {improvement.appliedStrategies.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700">反映した改善戦略</h3>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
+                      {improvement.appliedStrategies.map((strategy, index) => (
+                        <li key={index}>{strategy}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {improvedEvaluation && (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-baseline justify-between gap-4">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">改善案のスコア</div>
+                        <div className="mt-1 flex items-end gap-2">
+                          <span className="text-3xl font-bold text-slate-900">{improvedEvaluation.score}</span>
+                          <span className="text-sm text-slate-500">/ 100</span>
+                        </div>
+                      </div>
+                      {scoreGain !== null && (
                         <span
-                          className={`text-sm font-semibold ${
+                          className={`text-base font-semibold ${
                             scoreGain >= 0 ? "text-emerald-600" : "text-rose-600"
                           }`}
                         >
@@ -468,118 +460,111 @@ export default function Page() {
                         </span>
                       )}
                     </div>
-                    <Progress value={improvedEvaluation.score} className="mt-3" />
+                    <Progress value={improvedEvaluation.score} />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {improvedEvaluation.groupSummaries.map((summary) => (
+                        <div key={summary.group} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="text-xs font-semibold text-slate-500">{summary.group}</div>
+                          <div className="mt-2 flex items-baseline gap-2">
+                            <span className="text-xl font-bold text-slate-900">{summary.percentage}</span>
+                            <span className="text-xs text-slate-500">/ 100</span>
+                          </div>
+                          <Progress value={summary.percentage} className="mt-2" />
+                        </div>
+                      ))}
+                    </div>
+                    {improvement.actionPlan && improvement.actionPlan.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-semibold text-slate-700">即実行できるアクション</h3>
+                        <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+                          {improvement.actionPlan.map((item, index) => (
+                            <li key={index}>{item.title}: {item.summary}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
+                )}
+              </div>
+            )}
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {improvedEvaluation.groupSummaries.map((summary) => (
-                      <div key={summary.group} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                        <div className="text-xs font-semibold text-slate-500">{summary.group}</div>
-                        <div className="mt-1 flex items-baseline gap-2">
-                          <span className="text-xl font-bold text-slate-900">{summary.percentage}</span>
+            {state.result && (
+              <div className="space-y-6">
+                <div className="rounded-[32px] border border-slate-200 bg-white/80 p-6">
+                  <h3 className="text-sm font-semibold text-slate-700">総合スコア</h3>
+                  <div className="mt-3 flex items-baseline gap-3">
+                    <span className="text-4xl font-bold text-slate-900">{state.result.overallScore}</span>
+                    <span className="text-sm text-slate-500">/ 100</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {Object.entries(state.result.sectionScores).map(([key, value]) => (
+                      <div key={key} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                        <div className="text-xs font-semibold text-slate-500">
+                          {sectionLabels[key as keyof typeof sectionLabels] ?? key}
+                        </div>
+                        <div className="mt-2 flex items-baseline gap-2">
+                          <span className="text-xl font-bold text-slate-900">{value}</span>
                           <span className="text-xs text-slate-500">/ 100</span>
                         </div>
-                        <Progress value={summary.percentage} className="mt-2" />
                       </div>
                     ))}
                   </div>
-
-                  {improvement.appliedStrategies.length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-semibold">反映した改善戦略</h3>
-                      <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-                        {improvement.appliedStrategies.map((strategy, index) => (
-                          <li key={index}>{strategy}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-500">改善結果は AI 添削完了後に表示されます。</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {state.result && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Gemini 添削結果</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <section className="space-y-2">
-                  <h2 className="text-xl font-semibold">総合スコア</h2>
-                  <p className="text-4xl font-bold">{state.result.overallScore}</p>
-                  <div className="space-y-2">
-                    {Object.entries(state.result.sectionScores).map(([key, value]) => (
-                      <div key={key} className="flex items-center justify-between text-sm">
-                        <span>{sectionLabels[key as keyof typeof sectionLabels] ?? key}</span>
-                        <span>{value}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">改善ポイント</h3>
-                    <ul className="list-disc space-y-1 pl-4 text-sm">
+                  <div className="mt-4 space-y-2">
+                    <h4 className="text-sm font-semibold text-slate-700">改善ポイント</h4>
+                    <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
                       {state.result.topImprovementPoints.map((point, index) => (
                         <li key={index}>{point}</li>
                       ))}
                     </ul>
                   </div>
-                </section>
+                </div>
 
-                <section className="space-y-4">
+                <div className="rounded-[32px] border border-slate-200 bg-white/80 p-6 space-y-5">
                   <div>
-                    <h3 className="text-sm font-semibold">サマリ</h3>
+                    <h3 className="text-sm font-semibold text-slate-700">サマリ</h3>
                     <article
-                      className="prose prose-sm max-w-none"
+                      className="prose prose-sm max-w-none text-slate-700"
                       dangerouslySetInnerHTML={{ __html: marked.parse(state.result.summaryMarkdown) as string }}
                     />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold">リライト提案</h3>
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap">{state.result.rewriteSuggestion}</p>
+                    <h3 className="text-sm font-semibold text-slate-700">リライト提案</h3>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{state.result.rewriteSuggestion}</p>
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold">学習タスク</h3>
-                    <ul className="list-disc space-y-1 pl-4 text-sm">
+                    <h3 className="text-sm font-semibold text-slate-700">学習タスク</h3>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
                       {state.result.learningTasks.map((task, index) => (
                         <li key={index}>{task}</li>
                       ))}
                     </ul>
                   </div>
-                </section>
+                </div>
 
-                <section className="md:col-span-2 space-y-3">
-                  <h3 className="text-sm font-semibold">指摘一覧</h3>
-                  <div className="grid gap-2 md:grid-cols-2">
-                    {state.result.inlineIssues.map((issue, index) => (
-                      <div key={index} className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
-                        <div className="flex items-center justify-between">
-                          <Badge
-                            variant={
-                              issue.severity === "major"
-                                ? "danger"
-                                : issue.severity === "minor"
-                                ? "warning"
-                                : "default"
-                            }
-                          >
-                            {issue.category}
-                          </Badge>
-                          <span className="text-xs text-slate-500">
-                            {issue.startIndex} - {issue.endIndex}
-                          </span>
+                {state.result.inlineIssues.length > 0 && (
+                  <div className="rounded-[32px] border border-slate-200 bg-white/80 p-6">
+                    <h3 className="text-sm font-semibold text-slate-700">指摘一覧</h3>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {state.result.inlineIssues.map((issue, index) => (
+                        <div key={index} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${issueSeverityClass[issue.severity]}`}>
+                              {issue.category}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {issue.startIndex} - {issue.endIndex}
+                            </span>
+                          </div>
+                          <p className="mt-3 font-semibold text-slate-800">{issue.message}</p>
+                          <p className="mt-1 text-xs text-slate-600">{issue.suggestion}</p>
                         </div>
-                        <p className="mt-2 font-medium">{issue.message}</p>
-                        <p className="text-xs text-slate-600">{issue.suggestion}</p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </section>
-              </CardContent>
-            </Card>
-          )}
+                )}
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </main>
