@@ -43,6 +43,12 @@ const sectionLabels: Record<keyof GeminiReviewOutput["sectionScores"], string> =
   mechanics: "日本語の正確さ"
 };
 
+const actionPlanPriorityClass: Record<"high" | "medium" | "low", string> = {
+  high: "text-emerald-600",
+  medium: "text-amber-600",
+  low: "text-slate-500"
+};
+
 async function parseEventStream(response: Response, onEvent: (event: ReviewStreamEvent) => void) {
   const reader = response.body?.getReader();
   if (!reader) return;
@@ -112,23 +118,24 @@ export default function Page() {
       setState({ status: "error", message });
       return;
     }
-    const evaluation = evaluateEssay(essay, focus, { topic: topic || undefined });
-    let nextImprovement = createImprovedEssay(essay, focus, {
+    const evaluationOptions = {
       topic: topic || undefined,
+      targetCharacterCount,
+      tone: tone || undefined
+    };
+    const evaluation = evaluateEssay(essay, focus, evaluationOptions);
+    let nextImprovement = createImprovedEssay(essay, focus, {
+      ...evaluationOptions,
       evaluation
     });
-    let nextImprovedEvaluation = evaluateEssay(nextImprovement.text, focus, {
-      topic: topic || undefined
-    });
+    let nextImprovedEvaluation = evaluateEssay(nextImprovement.text, focus, evaluationOptions);
     if (nextImprovedEvaluation.score <= evaluation.score) {
       const structuredImprovement = createImprovedEssay(essay, focus, {
-        topic: topic || undefined,
+        ...evaluationOptions,
         evaluation,
         forceStructured: true
       });
-      const structuredEvaluation = evaluateEssay(structuredImprovement.text, focus, {
-        topic: topic || undefined
-      });
+      const structuredEvaluation = evaluateEssay(structuredImprovement.text, focus, evaluationOptions);
       if (structuredEvaluation.score > nextImprovedEvaluation.score) {
         nextImprovement = structuredImprovement;
         nextImprovedEvaluation = structuredEvaluation;
@@ -338,16 +345,38 @@ export default function Page() {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {clientEvaluation.groupSummaries.map((summary) => (
-                    <div key={summary.group} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                      <div className="text-xs font-semibold text-slate-500">{summary.group}</div>
-                      <div className="mt-1 flex items-center justify-between">
-                        <span className="text-lg font-bold text-slate-800">{summary.percentage}</span>
-                        <span className="text-xs text-slate-500">/100</span>
+                  {clientEvaluation.groupSummaries.map((summary) => {
+                    const coverageInfo = clientEvaluation.coverage.groups.find(
+                      (group) => group.group === summary.group
+                    );
+                    return (
+                      <div key={summary.group} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div className="text-xs font-semibold text-slate-500">{summary.group}</div>
+                        <div className="mt-1 flex items-center justify-between">
+                          <span className="text-lg font-bold text-slate-800">{summary.percentage}</span>
+                          <span className="text-xs text-slate-500">/100</span>
+                        </div>
+                        <Progress value={summary.percentage} className="mt-2" />
+                        {coverageInfo && (
+                          <p className="mt-2 text-xs text-slate-500">
+                            {coverageInfo.satisfied}/{coverageInfo.total}項目クリア（{coverageInfo.percentage}%）
+                          </p>
+                        )}
                       </div>
-                      <Progress value={summary.percentage} className="mt-2" />
-                    </div>
-                  ))}
+                    );
+                  })}
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="text-xs font-semibold text-slate-500">ルーブリック達成率</div>
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-slate-900">{clientEvaluation.coverage.percentage}</span>
+                    <span className="text-xs text-slate-500">/100</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {clientEvaluation.coverage.satisfied} / {clientEvaluation.coverage.totalCriteria} 項目を達成
+                  </p>
+                  <Progress value={clientEvaluation.coverage.percentage} className="mt-3" />
                 </div>
 
                 {clientEvaluation.topAdvice.length > 0 && (
@@ -358,6 +387,44 @@ export default function Page() {
                         <li key={index}>{advice}</li>
                       ))}
                     </ul>
+                  </div>
+                )}
+
+                {clientEvaluation.actionPlan.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold">アクションプラン</h3>
+                    <ol className="space-y-3 text-sm">
+                      {clientEvaluation.actionPlan.map((item, index) => (
+                        <li
+                          key={`${item.title}-${index}`}
+                          className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-slate-800">{index + 1}. {item.title}</span>
+                            <span className={`text-xs font-semibold ${actionPlanPriorityClass[item.priority]}`}>
+                              {item.priority === "high"
+                                ? "優先度: 高"
+                                : item.priority === "medium"
+                                  ? "優先度: 中"
+                                  : "優先度: 低"}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-slate-700">{item.summary}</p>
+                          {item.rubricIds.length > 0 && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              対応ルーブリック: {item.rubricIds.map((id) => `#${id}`).join(", ")}
+                            </p>
+                          )}
+                          {item.suggestions.length > 0 && (
+                            <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-600">
+                              {item.suggestions.map((suggestion, suggestionIndex) => (
+                                <li key={suggestionIndex}>{suggestion}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
                   </div>
                 )}
               </CardContent>
