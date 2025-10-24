@@ -121,6 +121,7 @@ export type ReviewStreamEventType =
   | "gemini-requested"
   | "persisted"
   | "completed"
+  | "warning"
   | "error";
 
 export interface ReviewStreamEvent {

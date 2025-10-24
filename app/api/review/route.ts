@@ -6,6 +6,10 @@ import { preprocessEssay } from "@/lib/preprocess";
 import { canProceed } from "@/lib/rateLimiter";
 import { GeminiService } from "@/lib/gemini";
 import { prisma } from "@/lib/prisma";
+import {
+  PrismaClientInitializationError,
+  PrismaClientKnownRequestError
+} from "@prisma/client/runtime/library";
 import type {
   EssayInput,
   GeminiReviewInput,
@@ -17,6 +21,13 @@ const encoder = new TextEncoder();
 
 function streamEvent(controller: ReadableStreamDefaultController, event: ReviewStreamEvent) {
   controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+}
+
+function isPersistenceSetupError(error: unknown): boolean {
+  if (error instanceof PrismaClientKnownRequestError) {
+    return error.code === "P2021";
+  }
+  return error instanceof PrismaClientInitializationError;
 }
 
 function getClientKey(request: NextRequest): string {
@@ -58,11 +69,34 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        const session = await prisma.reviewSession.upsert({
-          where: { sessionKey },
-          update: {},
-          create: { sessionKey }
-        });
+        let session: { id: string } | null = null;
+        let canPersist = true;
+        let persistenceWarningSent = false;
+
+        const notifyPersistenceIssue = (error: unknown) => {
+          if (persistenceWarningSent) return;
+          persistenceWarningSent = true;
+          console.warn("Skipping persistence because the database is not ready.", error);
+          streamEvent(controller, {
+            type: "warning",
+            message: "データベースが初期化されていないため履歴保存をスキップしました。"
+          });
+        };
+
+        try {
+          session = await prisma.reviewSession.upsert({
+            where: { sessionKey },
+            update: {},
+            create: { sessionKey }
+          });
+        } catch (error) {
+          if (isPersistenceSetupError(error)) {
+            canPersist = false;
+            notifyPersistenceIssue(error);
+          } else {
+            throw error;
+          }
+        }
 
         const gemini = new GeminiService(process.env.GEMINI_API_KEY ?? "");
         const geminiInput: GeminiReviewInput = {
@@ -73,59 +107,75 @@ export async function POST(request: NextRequest) {
         streamEvent(controller, { type: "gemini-requested" });
         const result: GeminiReviewOutput = await gemini.generateReview(geminiInput);
 
-        const essayRecord = await prisma.essay.create({
-          data: {
-            sessionId: session.id,
-            topic: body.topic,
-            content: body.content,
-            characterCount: preprocess.characterCount
-          }
-        });
+        let persisted = false;
+        if (canPersist && session) {
+          try {
+            const essayRecord = await prisma.essay.create({
+              data: {
+                sessionId: session.id,
+                topic: body.topic,
+                content: body.content,
+                characterCount: preprocess.characterCount
+              }
+            });
 
-        const evaluation = await prisma.evaluation.create({
-          data: {
-            essayId: essayRecord.id,
-            overallScore: result.overallScore,
-            sectionScores: {
-              content: result.sectionScores.content,
-              organisation: result.sectionScores.organisation,
-              language: result.sectionScores.language,
-              mechanics: result.sectionScores.mechanics
-            } satisfies Prisma.InputJsonObject,
-            summaryMarkdown: result.summaryMarkdown,
-            rewriteSuggestion: result.rewriteSuggestion,
-            learningTasks: result.learningTasks,
-            confidence: result.confidence
-          }
-        });
+            const evaluation = await prisma.evaluation.create({
+              data: {
+                essayId: essayRecord.id,
+                overallScore: result.overallScore,
+                sectionScores: {
+                  content: result.sectionScores.content,
+                  organisation: result.sectionScores.organisation,
+                  language: result.sectionScores.language,
+                  mechanics: result.sectionScores.mechanics
+                } satisfies Prisma.InputJsonObject,
+                summaryMarkdown: result.summaryMarkdown,
+                rewriteSuggestion: result.rewriteSuggestion,
+                learningTasks: result.learningTasks,
+                confidence: result.confidence
+              }
+            });
 
-        if (result.inlineIssues.length > 0) {
-          await prisma.inlineIssue.createMany({
-            data: result.inlineIssues.map((issue) => ({
-              evaluationId: evaluation.id,
-              startIndex: issue.startIndex,
-              endIndex: issue.endIndex,
-              category: issue.category,
-              severity: issue.severity,
-              message: issue.message,
-              suggestion: issue.suggestion
-            }))
-          });
+            if (result.inlineIssues.length > 0) {
+              await prisma.inlineIssue.createMany({
+                data: result.inlineIssues.map((issue) => ({
+                  evaluationId: evaluation.id,
+                  startIndex: issue.startIndex,
+                  endIndex: issue.endIndex,
+                  category: issue.category,
+                  severity: issue.severity,
+                  message: issue.message,
+                  suggestion: issue.suggestion
+                }))
+              });
+            }
+
+            if (result.tokenUsage.length > 0) {
+              await prisma.tokenUsageLog.createMany({
+                data: result.tokenUsage.map((usage) => ({
+                  evaluationId: evaluation.id,
+                  mode: usage.mode,
+                  promptTokens: usage.promptTokens,
+                  responseTokens: usage.responseTokens,
+                  latencyMs: usage.latencyMs
+                }))
+              });
+            }
+
+            persisted = true;
+          } catch (error) {
+            if (isPersistenceSetupError(error)) {
+              canPersist = false;
+              notifyPersistenceIssue(error);
+            } else {
+              throw error;
+            }
+          }
         }
 
-        if (result.tokenUsage.length > 0) {
-          await prisma.tokenUsageLog.createMany({
-            data: result.tokenUsage.map((usage) => ({
-              evaluationId: evaluation.id,
-              mode: usage.mode,
-              promptTokens: usage.promptTokens,
-              responseTokens: usage.responseTokens,
-              latencyMs: usage.latencyMs
-            }))
-          });
+        if (persisted) {
+          streamEvent(controller, { type: "persisted" });
         }
-
-        streamEvent(controller, { type: "persisted" });
         streamEvent(controller, { type: "completed", payload: result });
         controller.close();
       } catch (error) {

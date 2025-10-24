@@ -91,7 +91,7 @@ export default function Page() {
   const progressValue = useMemo(() => {
     if (state.status === "idle") return 0;
     if (state.status === "error") return 100;
-    const map: Record<ReviewStreamEventType, number> = {
+    const map: Partial<Record<ReviewStreamEventType, number>> = {
       preprocess: 25,
       "gemini-requested": 50,
       persisted: 75,
@@ -165,6 +165,9 @@ export default function Page() {
         if (event.type === "error") {
           setState({ status: "error", message: String(event.message ?? "エラーが発生しました。") });
           toast.error(event.message ?? "エラーが発生しました");
+        }
+        if (event.type === "warning") {
+          toast.warning(event.message ?? "警告が発生しました");
         }
         if (event.type === "completed") {
           const result = event.payload as GeminiReviewOutput;
