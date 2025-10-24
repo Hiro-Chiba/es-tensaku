@@ -29,7 +29,6 @@ function toContextOptions(options?: EvaluationOptions): EvaluationContextOptions
   return {
     topic: options.topic,
     targetCharacterCount: options.targetCharacterCount,
-    tonePreference: options.tone,
     industry: options.industry,
     jobCategory: options.jobCategory
   } satisfies EvaluationContextOptions;

@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useReviewHistory } from "@/hooks/useReviewHistory";
-import { toCsv } from "@/utils/csv";
 import type {
   EssayInput,
   EssayEvaluation,
@@ -79,8 +78,6 @@ export default function Page() {
   const [topic, setTopic] = useState("");
   const [focus, setFocus] = useState<typeof focusOptions[number]["value"]>(focusOptions[0].value);
   const [targetCharacterCount, setTargetCharacterCount] = useState<number | undefined>();
-  const [tone, setTone] = useState("");
-  const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [state, setState] = useState<ReviewState>({ status: "idle" });
   const [events, setEvents] = useState<ReviewStreamEventType[]>([]);
   const [clientEvaluation, setClientEvaluation] = useState<EssayEvaluation | null>(null);
@@ -106,11 +103,6 @@ export default function Page() {
   }, [clientEvaluation, improvedEvaluation]);
 
   const handleSubmit = useCallback(async () => {
-    if (!agreeToTerms) {
-      toast.error("利用規約に同意してください");
-      setState({ status: "error", message: "利用規約に同意してください" });
-      return;
-    }
     const charCount = essay.replace(/\s+/g, "").length;
     if (charCount < 200) {
       const message = "エントリーシートは最低200文字以上入力してください";
@@ -120,8 +112,7 @@ export default function Page() {
     }
     const evaluationOptions = {
       topic: topic || undefined,
-      targetCharacterCount,
-      tone: tone || undefined
+      targetCharacterCount
     };
     const evaluation = evaluateEssay(essay, focus, evaluationOptions);
     let nextImprovement = createImprovedEssay(essay, focus, {
@@ -151,10 +142,8 @@ export default function Page() {
       topic: topic || undefined,
       settings: {
         focus,
-        targetCharacterCount,
-        tone: tone || undefined
-      },
-      agreeToTerms
+        targetCharacterCount
+      }
     };
 
     try {
@@ -191,25 +180,11 @@ export default function Page() {
       setState({ status: "error", message: error instanceof Error ? error.message : String(error) });
       toast.error(error instanceof Error ? error.message : "不明なエラーが発生しました");
     }
-  }, [agreeToTerms, essay, focus, saveRecord, targetCharacterCount, tone, topic]);
-
-  const downloadCsv = useCallback(() => {
-    const csv = toCsv(records);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `es-tensaku-history-${Date.now()}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  }, [records]);
+  }, [essay, focus, saveRecord, targetCharacterCount, topic]);
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10">
       <header className="space-y-2 text-center">
-        <Badge variant="success">AI 添削エンジン搭載</Badge>
         <h1 className="text-4xl font-bold tracking-tight">ES-tensaku</h1>
         <p className="text-slate-600">
           志望動機やガクチカなどのエントリーシート文章を貼り付けて、数十秒でビジネス視点のフィードバックを受け取りましょう。
@@ -251,29 +226,18 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">目標文字数 (任意)</label>
-                  <input
-                    type="number"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                    placeholder="例: 400"
-                    value={targetCharacterCount ?? ""}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setTargetCharacterCount(value ? Number(value) : undefined);
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">トーン (任意)</label>
-                  <input
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                    placeholder="例: 誠実・熱意が伝わる語り口"
-                    value={tone}
-                    onChange={(event) => setTone(event.target.value)}
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">目標文字数 (任意)</label>
+                <input
+                  type="number"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  placeholder="例: 400"
+                  value={targetCharacterCount ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setTargetCharacterCount(value ? Number(value) : undefined);
+                  }}
+                />
               </div>
 
               <div className="space-y-2">
@@ -285,15 +249,6 @@ export default function Page() {
                   placeholder="ここに志望動機や学生時代に力を入れたことなどの文章を貼り付けてください。Markdown も利用できます。"
                 />
               </div>
-
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={agreeToTerms}
-                  onChange={(event) => setAgreeToTerms(event.target.checked)}
-                />
-                利用規約に同意します。
-              </label>
 
               <div className="space-y-2">
                 <button
@@ -437,9 +392,6 @@ export default function Page() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-3">
-                <button type="button" onClick={downloadCsv} disabled={!records.length}>
-                  CSV エクスポート
-                </button>
                 <button
                   type="button"
                   className="bg-slate-200 text-slate-700 hover:bg-slate-300"
@@ -472,63 +424,82 @@ export default function Page() {
         </div>
 
         <div className="space-y-6">
-          {improvement && improvedEvaluation && (
-            <Card>
-              <CardHeader>
-                <CardTitle>ロジックを満たした改善文章</CardTitle>
-                <p className="text-sm text-slate-500">{improvement.summary}</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="text-sm text-slate-500">改善後スコア</div>
-                  <div className="mt-1 flex items-baseline gap-3">
-                    <span className="text-3xl font-bold text-brand">{improvedEvaluation.score}</span>
-                    <span className="text-sm text-slate-500">/ 100</span>
-                    {clientEvaluation && scoreGain !== null && (
-                      <span
-                        className={`text-sm font-semibold ${
-                          scoreGain >= 0 ? "text-emerald-600" : "text-rose-600"
-                        }`}
-                      >
-                        {scoreGain >= 0 ? `+${scoreGain}` : scoreGain}
-                      </span>
-                    )}
+          <Card>
+            <CardHeader>
+              <CardTitle>文章比較ビュー</CardTitle>
+              <p className="text-sm text-slate-500">
+                {improvement ? improvement.summary : "入力した本文と改善案を左右に並べて確認できます。"}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <section className="space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-600">入力本文</h3>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <article className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                      {essay ? essay : "本文を入力するとここに表示されます。"}
+                    </article>
                   </div>
-                  <Progress value={improvedEvaluation.score} className="mt-3" />
-                </div>
+                </section>
+                <section className="space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-600">改善案</h3>
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <article className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                      {improvement ? improvement.text : "AI 添削後に改善案が表示されます。"}
+                    </article>
+                  </div>
+                </section>
+              </div>
 
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <article className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
-                    {improvement.text}
-                  </article>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {improvedEvaluation.groupSummaries.map((summary) => (
-                    <div key={summary.group} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                      <div className="text-xs font-semibold text-slate-500">{summary.group}</div>
-                      <div className="mt-1 flex items-baseline gap-2">
-                        <span className="text-xl font-bold text-slate-900">{summary.percentage}</span>
-                        <span className="text-xs text-slate-500">/ 100</span>
-                      </div>
-                      <Progress value={summary.percentage} className="mt-2" />
+              {improvement && improvedEvaluation ? (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="text-sm text-slate-500">改善後スコア</div>
+                    <div className="mt-1 flex items-baseline gap-3">
+                      <span className="text-3xl font-bold text-brand">{improvedEvaluation.score}</span>
+                      <span className="text-sm text-slate-500">/ 100</span>
+                      {clientEvaluation && scoreGain !== null && (
+                        <span
+                          className={`text-sm font-semibold ${
+                            scoreGain >= 0 ? "text-emerald-600" : "text-rose-600"
+                          }`}
+                        >
+                          {scoreGain >= 0 ? `+${scoreGain}` : scoreGain}
+                        </span>
+                      )}
                     </div>
-                  ))}
-                </div>
-
-                {improvement.appliedStrategies.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">反映した改善戦略</h3>
-                    <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-                      {improvement.appliedStrategies.map((strategy, index) => (
-                        <li key={index}>{strategy}</li>
-                      ))}
-                    </ul>
+                    <Progress value={improvedEvaluation.score} className="mt-3" />
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {improvedEvaluation.groupSummaries.map((summary) => (
+                      <div key={summary.group} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                        <div className="text-xs font-semibold text-slate-500">{summary.group}</div>
+                        <div className="mt-1 flex items-baseline gap-2">
+                          <span className="text-xl font-bold text-slate-900">{summary.percentage}</span>
+                          <span className="text-xs text-slate-500">/ 100</span>
+                        </div>
+                        <Progress value={summary.percentage} className="mt-2" />
+                      </div>
+                    ))}
+                  </div>
+
+                  {improvement.appliedStrategies.length > 0 && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold">反映した改善戦略</h3>
+                      <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+                        {improvement.appliedStrategies.map((strategy, index) => (
+                          <li key={index}>{strategy}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">改善結果は AI 添削完了後に表示されます。</p>
+              )}
+            </CardContent>
+          </Card>
 
           {state.result && (
             <Card>

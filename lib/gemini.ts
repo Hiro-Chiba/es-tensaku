@@ -116,8 +116,7 @@ export class GeminiService {
       `Review focus: ${focusLabel}`,
       essay.settings.targetCharacterCount
         ? `Target characters: ${essay.settings.targetCharacterCount}`
-        : null,
-      essay.settings.tone ? `Desired tone: ${essay.settings.tone}` : null
+        : null
     ]
       .filter(Boolean)
       .join(" | ");

@@ -3,7 +3,6 @@ export type ReviewFocus = "motivation" | "gakuchika" | "selfPr";
 export interface ReviewSettings {
   focus: ReviewFocus;
   targetCharacterCount?: number;
-  tone?: string;
   industry?: string;
   jobCategory?: string;
 }
@@ -12,7 +11,6 @@ export interface EssayInput {
   content: string;
   topic?: string;
   settings: ReviewSettings;
-  agreeToTerms: boolean;
 }
 
 export interface PreprocessResult {
@@ -114,7 +112,6 @@ export interface RubricCoverageSummary {
 export interface EvaluationOptions {
   topic?: string;
   targetCharacterCount?: number;
-  tone?: string;
   industry?: string;
   jobCategory?: string;
 }
