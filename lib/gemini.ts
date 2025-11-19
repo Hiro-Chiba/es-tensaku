@@ -37,8 +37,9 @@ interface GeminiResponse {
 export class GeminiService {
   private readonly apiKey: string;
   private readonly fetcher: Fetcher;
+  private readonly model = "gemini-3-pro-preview";
   private readonly endpoint =
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+    `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
 
   constructor(apiKey: string, fetcher: Fetcher = fetch) {
     if (!apiKey) {

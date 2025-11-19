@@ -1,9 +1,9 @@
 # ES-tensaku 機能実装計画書 (MVP)
 
 ## 1. プロジェクト概要
-- **目的**: Gemini 2.5 Flash API を活用し、日本企業向けエントリーシートを即時に添削・フィードバックできる Next.js アプリを Vercel/Neon 上で提供する。
+- **目的**: Gemini 3 Pro Preview API を活用し、日本企業向けエントリーシートを即時に添削・フィードバックできる Next.js アプリを Vercel/Neon 上で提供する。
 - **前提**: アカウント登録やログインを排し、誰でもすぐに利用できるワンページ体験を最優先する。
-- **主要技術**: Next.js (App Router, TypeScript), Tailwind CSS, Prisma, Neon PostgreSQL, Vercel Serverless Functions, Gemini 2.5 Flash API。
+- **主要技術**: Next.js (App Router, TypeScript), Tailwind CSS, Prisma, Neon PostgreSQL, Vercel Serverless Functions, Gemini 3 Pro Preview API。
 
 ## 2. MVP スコープ
 1. **エントリーシート入力 & 設定 UI**
@@ -13,7 +13,7 @@
 2. **添削リクエスト送信フロー**
    - クライアント側で入力検証（最低文字数、禁止語チェック）。
    - `POST /api/review` で entry sheet データを送信し、Neon に保存（匿名セッションIDで紐付け）。
-   - API で Gemini 2.5 Flash を呼び出し、ストリームレスポンスで UI に反映。
+   - API で Gemini 3 Pro Preview を呼び出し、ストリームレスポンスで UI に反映。
 
 3. **結果表示**
    - 総合スコア、評価サマリ、改善ポイントトップ3 をカード表示。
@@ -37,7 +37,7 @@
 [Client (Next.js Page)]
    |-- fetch (POST) --> [/api/review]
    |                      |-- Prisma --> [Neon PostgreSQL]
-   |                      |-- GeminiService --> [Gemini 2.5 Flash API]
+   |                      |-- GeminiService --> [Gemini 3 Pro Preview API]
    |<-- Server-Sent Events / streaming JSON
 ```
 - UI は主にクライアントコンポーネント。送信後はストリーミングで段階的に結果更新。
