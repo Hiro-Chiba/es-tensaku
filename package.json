@@ -9,7 +9,8 @@
     "lint": "next lint",
     "test": "jest",
     "prisma:generate": "prisma generate",
-    "postinstall": "npm run prisma:generate"
+    "prisma:migrate": "prisma migrate deploy",
+    "postinstall": "node scripts/postinstall.cjs"
   },
   "dependencies": {
     "@prisma/client": "5.16.1",
